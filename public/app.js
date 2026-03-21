@@ -42,6 +42,8 @@ let selectionModeEnabled = false;
 let dragSelection = null;
 let datasetPanelHidden = false;
 let suppressNextMoveEnd = false;
+let baseSelectedFeatures = [];
+let activeValueFilters = new Map();
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -71,56 +73,97 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function buildHistogram(values, min, max) {
+function formatNumber(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  if (Math.abs(value) >= 1000 || Number.isInteger(value)) {
+    return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function buildHistogram(field, values, min, max) {
   if (values.length === 0) {
     return "";
   }
 
   const bucketCount = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(values.length))));
-  const buckets = new Array(bucketCount).fill(0);
+  const buckets = new Array(bucketCount).fill(0).map((_, index) => ({
+    count: 0,
+    index,
+    rangeMin: min,
+    rangeMax: max
+  }));
 
   if (min === max) {
-    buckets[Math.floor(bucketCount / 2)] = values.length;
+    buckets[Math.floor(bucketCount / 2)].count = values.length;
   } else {
+    const span = max - min;
+
     values.forEach((value) => {
-      const ratio = (value - min) / (max - min);
+      const ratio = (value - min) / span;
       const index = Math.min(bucketCount - 1, Math.floor(ratio * bucketCount));
-      buckets[index] += 1;
+      buckets[index].count += 1;
+    });
+
+    buckets.forEach((bucket) => {
+      bucket.rangeMin = min + (span * bucket.index) / bucketCount;
+      bucket.rangeMax =
+        bucket.index === bucketCount - 1
+          ? max
+          : min + (span * (bucket.index + 1)) / bucketCount;
     });
   }
 
-  const maxBucket = Math.max(...buckets, 1);
-  const barWidth = 100 / bucketCount;
+  const maxBucket = Math.max(...buckets.map((bucket) => bucket.count), 1);
+  const activeFilter = activeValueFilters.get(field);
 
   const bars = buckets
-    .map((bucket, index) => {
-      const height = (bucket / maxBucket) * 100;
-      const x = index * barWidth;
-      const width = Math.max(3, barWidth - 1.5);
+    .map((bucket) => {
+      const isActive =
+        activeFilter &&
+        Number(activeFilter.min) === Number(bucket.rangeMin) &&
+        Number(activeFilter.max) === Number(bucket.rangeMax);
 
       return `
-        <rect
-          x="${x.toFixed(2)}"
-          y="${(100 - height).toFixed(2)}"
-          width="${width.toFixed(2)}"
-          height="${height.toFixed(2)}"
-          rx="1.5"
-          ry="1.5"
-        />
+        <button
+          type="button"
+          class="histogram-bar${isActive ? " is-active" : ""}"
+          data-action="filter-bucket"
+          data-field="${escapeHtml(field)}"
+          data-min="${bucket.rangeMin}"
+          data-max="${bucket.rangeMax}"
+          title="${escapeHtml(
+            `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)} (${bucket.count})`
+          )}"
+          aria-label="${escapeHtml(
+            `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)}`
+          )}"
+          style="height:${Math.max(8, (bucket.count / maxBucket) * 100)}%"
+        ></button>
       `;
     })
     .join("");
 
   return `
     <div class="histogram-cell">
-      <svg class="histogram" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <div class="histogram-axis">
+        <span>${formatNumber(min)}</span>
+        <span>${formatNumber(max)}</span>
+      </div>
+      <div class="histogram">
         ${bars}
-      </svg>
+      </div>
     </div>
   `;
 }
 
 function clearSelection() {
+  baseSelectedFeatures = [];
+  activeValueFilters.clear();
   const empty = { type: "FeatureCollection", features: [] };
   map.getSource("selected-features").setData(empty);
   selectedCount.textContent = "0";
@@ -137,10 +180,38 @@ function resetDragSelection() {
   map.dragPan.enable();
 }
 
+function getFilteredSelectedFeatures() {
+  if (activeValueFilters.size === 0) {
+    return baseSelectedFeatures;
+  }
+
+  return baseSelectedFeatures.filter((feature) => {
+    const properties = feature.properties || {};
+
+    for (const [field, range] of activeValueFilters.entries()) {
+      const value = properties[field];
+      if (!isFiniteNumber(value)) {
+        return false;
+      }
+
+      const isLastBucket = range.max === range.originalMax;
+      const inRange = isLastBucket
+        ? value >= range.min && value <= range.max
+        : value >= range.min && value < range.max;
+
+      if (!inRange) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
 function updateSelectionSummary(features) {
   selectedCount.textContent = String(features.length);
 
-  if (features.length === 0) {
+  if (baseSelectedFeatures.length === 0) {
     selectionSummaryContent.innerHTML = "No selection yet.";
     return;
   }
@@ -192,7 +263,7 @@ function updateSelectionSummary(features) {
           <td>${stats.min.toFixed(2)}</td>
           <td>${stats.max.toFixed(2)}</td>
           <td>${mean.toFixed(2)}</td>
-          <td>${buildHistogram(stats.values, stats.min, stats.max)}</td>
+          <td>${buildHistogram(key, stats.values, stats.min, stats.max)}</td>
         </tr>
       `;
     })
@@ -204,8 +275,37 @@ function updateSelectionSummary(features) {
     .map(([key, count]) => `<li><strong>${escapeHtml(key)}</strong>: ${count}</li>`)
     .join("");
 
+  const activeFilterTags = [...activeValueFilters.entries()]
+    .map(
+      ([field, range]) => `
+        <button
+          type="button"
+          class="filter-tag"
+          data-action="clear-filter"
+          data-field="${escapeHtml(field)}"
+        >
+          ${escapeHtml(field)}: ${formatNumber(range.min)} - ${formatNumber(range.max)} x
+        </button>
+      `
+    )
+    .join("");
+
   selectionSummaryContent.innerHTML = `
-    <p class="summary-kpi">${features.length} selected feature${features.length === 1 ? "" : "s"}</p>
+    <div class="summary-toolbar">
+      <p class="summary-kpi">${features.length} selected feature${features.length === 1 ? "" : "s"}</p>
+      ${
+        activeValueFilters.size > 0
+          ? `<button type="button" class="clear-filters-button" data-action="clear-all-filters">
+              Clear value filters
+            </button>`
+          : ""
+      }
+    </div>
+    ${
+      activeFilterTags
+        ? `<div class="active-filters">${activeFilterTags}</div>`
+        : ""
+    }
     ${
       numericRows
         ? `<div class="summary-table-wrap">
@@ -237,12 +337,25 @@ function updateSelectionSummary(features) {
   `;
 }
 
-function setSelectedFeatures(features) {
+function renderSelectedFeatures() {
+  const filteredFeatures = getFilteredSelectedFeatures();
   map.getSource("selected-features").setData({
     type: "FeatureCollection",
-    features
+    features: filteredFeatures
   });
-  updateSelectionSummary(features);
+  updateSelectionSummary(filteredFeatures);
+  if (baseSelectedFeatures.length > 0) {
+    statusText.textContent =
+      activeValueFilters.size > 0
+        ? `Selected ${filteredFeatures.length} features after value filters`
+        : `Selected ${filteredFeatures.length} features`;
+  }
+}
+
+function setSelectedFeatures(features) {
+  baseSelectedFeatures = features;
+  activeValueFilters.clear();
+  renderSelectedFeatures();
 }
 
 function getFeatureBoundingBox(geometry) {
@@ -555,6 +668,46 @@ async function initialize() {
   }
 }
 
+function handleSummaryClick(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) {
+    return;
+  }
+
+  const action = button.dataset.action;
+
+  if (action === "clear-all-filters") {
+    activeValueFilters.clear();
+    renderSelectedFeatures();
+    return;
+  }
+
+  if (action === "clear-filter") {
+    activeValueFilters.delete(button.dataset.field);
+    renderSelectedFeatures();
+    return;
+  }
+
+  if (action === "filter-bucket") {
+    const field = button.dataset.field;
+    const min = Number(button.dataset.min);
+    const max = Number(button.dataset.max);
+    const current = activeValueFilters.get(field);
+
+    if (current && current.min === min && current.max === max) {
+      activeValueFilters.delete(field);
+    } else {
+      activeValueFilters.set(field, {
+        min,
+        max,
+        originalMax: max
+      });
+    }
+
+    renderSelectedFeatures();
+  }
+}
+
 map.on("load", async () => {
   ensureDataLayers();
   await initialize();
@@ -584,6 +737,7 @@ map.on("load", async () => {
       clearSelection();
     }
   });
+  selectionSummaryContent.addEventListener("click", handleSummaryClick);
 
   setDatasetPanelHidden(false);
 });
