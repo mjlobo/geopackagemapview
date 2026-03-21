@@ -1,0 +1,14 @@
+{
+  "name": "bdmapvis2-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal Node.js backend for reading the GeoPackage in the data folder.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

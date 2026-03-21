@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GeoPackage Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="panel">
+        <div>
+          <p class="eyebrow">MapLibre Viewer</p>
+          <h1>GeoPackage Features</h1>
+          <p class="panel-copy">
+            Pick a layer, then move the map. The app requests only features inside the visible bounds.
+          </p>
+        </div>
+
+        <label class="field">
+          <span>Layer</span>
+          <select id="layerSelect"></select>
+        </label>
+
+        <label class="field">
+          <span>Feature limit</span>
+          <input id="limitInput" type="number" min="50" max="5000" step="50" value="1000" />
+        </label>
+
+        <button id="reloadButton" type="button">Reload visible features</button>
+
+        <dl class="stats">
+          <div>
+            <dt>File</dt>
+            <dd id="fileName">Loading…</dd>
+          </div>
+          <div>
+            <dt>Loaded</dt>
+            <dd id="featureCount">0</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd id="statusText">Initializing</dd>
+          </div>
+        </dl>
+      </aside>
+
+      <main class="map-wrap">
+        <div id="map"></div>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="/public/app.js"></script>
+  </body>
+  </html>

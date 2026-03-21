@@ -1,0 +1,149 @@
+:root {
+  --bg: #f3efe6;
+  --panel: rgba(255, 250, 242, 0.92);
+  --ink: #1f2a2c;
+  --muted: #5d6b6f;
+  --accent: #0f766e;
+  --accent-strong: #0b5d57;
+  --border: rgba(31, 42, 44, 0.12);
+  --shadow: 0 24px 60px rgba(39, 53, 56, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 28%),
+    linear-gradient(135deg, #f7f3ea, #ebe4d6);
+}
+
+body {
+  min-height: 100%;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  min-height: 100vh;
+}
+
+.panel {
+  padding: 28px;
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  z-index: 1;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 0.96;
+}
+
+.panel-copy {
+  margin: 14px 0 28px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.field {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.field span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.field select,
+.field input,
+button {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  font: inherit;
+  background: #fffefb;
+}
+
+button {
+  margin-top: 8px;
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stats {
+  margin: 28px 0 0;
+  display: grid;
+  gap: 14px;
+}
+
+.stats div {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border);
+}
+
+.stats dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.stats dd {
+  margin: 6px 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.map-wrap,
+#map {
+  min-height: 100vh;
+}
+
+.maplibregl-popup-content {
+  max-width: 280px;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .map-wrap,
+  #map {
+    min-height: 60vh;
+  }
+}
