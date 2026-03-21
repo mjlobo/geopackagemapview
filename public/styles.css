@@ -107,6 +107,14 @@ button {
   background: linear-gradient(135deg, #b45309, #9a3412);
 }
 
+#datasetPanelSection {
+  margin-top: 14px;
+}
+
+#datasetPanelSection.is-hidden {
+  display: none;
+}
+
 .stats {
   margin: 28px 0 0;
   display: grid;
@@ -181,6 +189,7 @@ button {
   border-bottom: 1px solid rgba(31, 42, 44, 0.08);
   text-align: left;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .summary-table th {
@@ -190,6 +199,25 @@ button {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.histogram-cell {
+  width: 140px;
+  min-width: 140px;
+}
+
+.histogram {
+  display: block;
+  width: 140px;
+  height: 42px;
+  padding: 4px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(15, 118, 110, 0.02));
+}
+
+.histogram rect {
+  fill: #0f766e;
+  opacity: 0.9;
 }
 
 .null-only-block {

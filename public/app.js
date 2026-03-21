@@ -7,6 +7,8 @@ const limitInput = document.getElementById("limitInput");
 const reloadButton = document.getElementById("reloadButton");
 const selectionToggleButton = document.getElementById("selectionToggleButton");
 const selectionSummaryContent = document.getElementById("selectionSummaryContent");
+const panelToggleButton = document.getElementById("panelToggleButton");
+const datasetPanelSection = document.getElementById("datasetPanelSection");
 
 const map = new maplibregl.Map({
   container: "map",
@@ -38,6 +40,8 @@ let currentFeatureCollection = { type: "FeatureCollection", features: [] };
 let pendingRequest = 0;
 let selectionModeEnabled = false;
 let dragSelection = null;
+let datasetPanelHidden = false;
+let suppressNextMoveEnd = false;
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -65,6 +69,55 @@ function escapeHtml(value) {
 
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function buildHistogram(values, min, max) {
+  if (values.length === 0) {
+    return "";
+  }
+
+  const bucketCount = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(values.length))));
+  const buckets = new Array(bucketCount).fill(0);
+
+  if (min === max) {
+    buckets[Math.floor(bucketCount / 2)] = values.length;
+  } else {
+    values.forEach((value) => {
+      const ratio = (value - min) / (max - min);
+      const index = Math.min(bucketCount - 1, Math.floor(ratio * bucketCount));
+      buckets[index] += 1;
+    });
+  }
+
+  const maxBucket = Math.max(...buckets, 1);
+  const barWidth = 100 / bucketCount;
+
+  const bars = buckets
+    .map((bucket, index) => {
+      const height = (bucket / maxBucket) * 100;
+      const x = index * barWidth;
+      const width = Math.max(3, barWidth - 1.5);
+
+      return `
+        <rect
+          x="${x.toFixed(2)}"
+          y="${(100 - height).toFixed(2)}"
+          width="${width.toFixed(2)}"
+          height="${height.toFixed(2)}"
+          rx="1.5"
+          ry="1.5"
+        />
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="histogram-cell">
+      <svg class="histogram" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        ${bars}
+      </svg>
+    </div>
+  `;
 }
 
 function clearSelection() {
@@ -112,13 +165,15 @@ function updateSelectionSummary(features) {
         count: 0,
         min: value,
         max: value,
-        sum: 0
+        sum: 0,
+        values: []
       };
 
       stats.count += 1;
       stats.sum += value;
       stats.min = Math.min(stats.min, value);
       stats.max = Math.max(stats.max, value);
+      stats.values.push(value);
       numericStats.set(key, stats);
     });
   });
@@ -137,6 +192,7 @@ function updateSelectionSummary(features) {
           <td>${stats.min.toFixed(2)}</td>
           <td>${stats.max.toFixed(2)}</td>
           <td>${mean.toFixed(2)}</td>
+          <td>${buildHistogram(stats.values, stats.min, stats.max)}</td>
         </tr>
       `;
     })
@@ -162,6 +218,7 @@ function updateSelectionSummary(features) {
                   <th>Min</th>
                   <th>Max</th>
                   <th>Mean</th>
+                  <th>Distribution</th>
                 </tr>
               </thead>
               <tbody>${numericRows}</tbody>
@@ -281,6 +338,14 @@ function setSelectionMode(enabled) {
     : `Showing ${currentFeatureCollection.features.length} features`;
 }
 
+function setDatasetPanelHidden(hidden) {
+  datasetPanelHidden = hidden;
+  datasetPanelSection.classList.toggle("is-hidden", hidden);
+  panelToggleButton.textContent = hidden
+    ? "Show dataset controls"
+    : "Hide dataset controls";
+}
+
 function startSelection(event) {
   if (!selectionModeEnabled || event.originalEvent.button !== 0) {
     return;
@@ -329,6 +394,8 @@ function endSelection() {
   if (!currentPoint) {
     return;
   }
+
+  suppressNextMoveEnd = true;
 
   const selectionBounds = getSelectionBounds(startPoint, currentPoint);
   const selectedFeatures = currentFeatureCollection.features.filter((feature) =>
@@ -493,7 +560,14 @@ map.on("load", async () => {
   await initialize();
   await loadFeatures();
 
-  map.on("moveend", loadFeatures);
+  map.on("moveend", () => {
+    if (suppressNextMoveEnd) {
+      suppressNextMoveEnd = false;
+      return;
+    }
+
+    loadFeatures();
+  });
   map.on("mousedown", startSelection);
   map.on("mousemove", updateSelection);
   map.on("mouseup", endSelection);
@@ -501,12 +575,17 @@ map.on("load", async () => {
 
   reloadButton.addEventListener("click", loadFeatures);
   layerSelect.addEventListener("change", loadFeatures);
+  panelToggleButton.addEventListener("click", () => {
+    setDatasetPanelHidden(!datasetPanelHidden);
+  });
   selectionToggleButton.addEventListener("click", () => {
     setSelectionMode(!selectionModeEnabled);
     if (!selectionModeEnabled) {
       clearSelection();
     }
   });
+
+  setDatasetPanelHidden(false);
 });
 
 function showFeaturePopup(event) {
