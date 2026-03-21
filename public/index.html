@@ -29,6 +29,9 @@
         </label>
 
         <button id="reloadButton" type="button">Reload visible features</button>
+        <button id="selectionToggleButton" type="button" class="secondary-button">
+          Enable rectangle selection
+        </button>
 
         <dl class="stats">
           <div>
@@ -43,7 +46,23 @@
             <dt>Status</dt>
             <dd id="statusText">Initializing</dd>
           </div>
+          <div>
+            <dt>Selected</dt>
+            <dd id="selectedCount">0</dd>
+          </div>
         </dl>
+
+        <section class="selection-summary">
+          <div class="summary-header">
+            <p class="eyebrow">Selection Summary</p>
+            <p class="summary-copy">
+              Draw a rectangle on the map to select currently loaded features and inspect numeric fields.
+            </p>
+          </div>
+          <div id="selectionSummaryContent" class="summary-content">
+            No selection yet.
+          </div>
+        </section>
       </aside>
 
       <main class="map-wrap">

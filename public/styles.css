@@ -96,6 +96,17 @@ button {
   cursor: pointer;
 }
 
+.secondary-button {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--border);
+}
+
+.secondary-button.is-active {
+  color: white;
+  background: linear-gradient(135deg, #b45309, #9a3412);
+}
+
 .stats {
   margin: 28px 0 0;
   display: grid;
@@ -122,9 +133,90 @@ button {
   font-weight: 700;
 }
 
+.selection-summary {
+  margin-top: 28px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--border);
+}
+
+.summary-header .eyebrow {
+  margin-bottom: 6px;
+}
+
+.summary-copy {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.summary-content {
+  font-size: 0.92rem;
+}
+
+.summary-kpi {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.summary-table-wrap {
+  overflow: auto;
+  max-height: 320px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fffefb;
+}
+
+.summary-table th,
+.summary-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(31, 42, 44, 0.08);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.summary-table th {
+  position: sticky;
+  top: 0;
+  background: #f7f3ea;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.null-only-block {
+  margin-top: 14px;
+}
+
+.null-only-block h2 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.null-only-block ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .map-wrap,
 #map {
   min-height: 100vh;
+}
+
+.selection-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid rgba(180, 83, 9, 0.95);
+  background: rgba(251, 191, 36, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 247, 237, 0.7);
 }
 
 .maplibregl-popup-content {
