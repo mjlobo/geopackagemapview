@@ -1,2 +1,3 @@
 .DS_Store
 data/*.gpkg
+scripts/__pycache__/
