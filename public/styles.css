@@ -302,10 +302,15 @@ button {
 
 .selection-box {
   position: absolute;
-  pointer-events: none;
   border: 2px solid rgba(180, 83, 9, 0.95);
   background: rgba(251, 191, 36, 0.18);
   box-shadow: inset 0 0 0 1px rgba(255, 247, 237, 0.7);
+  pointer-events: none;
+}
+
+.selection-box.is-fixed {
+  pointer-events: auto;
+  cursor: move;
 }
 
 .maplibregl-popup-content {

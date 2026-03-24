@@ -44,6 +44,8 @@ let datasetPanelHidden = false;
 let suppressNextMoveEnd = false;
 let baseSelectedFeatures = [];
 let activeValueFilters = new Map();
+let selectionOverlay = null;
+let moveSelectionState = null;
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -164,6 +166,7 @@ function buildHistogram(field, values, min, max) {
 function clearSelection() {
   baseSelectedFeatures = [];
   activeValueFilters.clear();
+  removeSelectionOverlay();
   const empty = { type: "FeatureCollection", features: [] };
   map.getSource("selected-features").setData(empty);
   selectedCount.textContent = "0";
@@ -178,6 +181,94 @@ function resetDragSelection() {
   dragSelection.box.remove();
   dragSelection = null;
   map.dragPan.enable();
+}
+
+function removeSelectionOverlay() {
+  if (!selectionOverlay) {
+    return;
+  }
+
+  selectionOverlay.box.remove();
+  selectionOverlay = null;
+}
+
+function createSelectionOverlayBox() {
+  const box = document.createElement("div");
+  box.className = "selection-box is-fixed";
+  box.addEventListener("mousedown", (event) => {
+    if (!selectionModeEnabled || event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!selectionOverlay) {
+      return;
+    }
+
+    map.dragPan.disable();
+    moveSelectionState = {
+      startPoint: { x: event.clientX, y: event.clientY },
+      startProjectedBounds: getProjectedSelectionBounds(selectionOverlay.bounds)
+    };
+  });
+
+  map.getCanvasContainer().appendChild(box);
+  return box;
+}
+
+function getProjectedSelectionBounds(bounds) {
+  const topLeft = map.project([bounds.minX, bounds.maxY]);
+  const bottomRight = map.project([bounds.maxX, bounds.minY]);
+
+  return {
+    left: topLeft.x,
+    top: topLeft.y,
+    right: bottomRight.x,
+    bottom: bottomRight.y
+  };
+}
+
+function renderSelectionOverlay() {
+  if (!selectionOverlay) {
+    return;
+  }
+
+  const projected = getProjectedSelectionBounds(selectionOverlay.bounds);
+  const left = Math.min(projected.left, projected.right);
+  const top = Math.min(projected.top, projected.bottom);
+  const width = Math.abs(projected.right - projected.left);
+  const height = Math.abs(projected.bottom - projected.top);
+
+  selectionOverlay.box.style.left = `${left}px`;
+  selectionOverlay.box.style.top = `${top}px`;
+  selectionOverlay.box.style.width = `${width}px`;
+  selectionOverlay.box.style.height = `${height}px`;
+}
+
+function setSelectionOverlay(bounds) {
+  if (!selectionOverlay) {
+    selectionOverlay = {
+      bounds,
+      box: createSelectionOverlayBox()
+    };
+  } else {
+    selectionOverlay.bounds = bounds;
+  }
+
+  renderSelectionOverlay();
+}
+
+function updateSelectedFeaturesFromBounds(bounds, { preserveFilters = true } = {}) {
+  if (!preserveFilters) {
+    activeValueFilters.clear();
+  }
+
+  baseSelectedFeatures = currentFeatureCollection.features.filter((feature) =>
+    isFeatureInsideSelection(feature, bounds)
+  );
+  renderSelectedFeatures();
 }
 
 function getFilteredSelectedFeatures() {
@@ -258,12 +349,12 @@ function updateSelectionSummary(features) {
       return `
         <tr>
           <td>${escapeHtml(key)}</td>
+          <td>${buildHistogram(key, stats.values, stats.min, stats.max)}</td>
           <td>${stats.count}</td>
           <td>${nullCount}</td>
           <td>${stats.min.toFixed(2)}</td>
           <td>${stats.max.toFixed(2)}</td>
           <td>${mean.toFixed(2)}</td>
-          <td>${buildHistogram(key, stats.values, stats.min, stats.max)}</td>
         </tr>
       `;
     })
@@ -313,12 +404,12 @@ function updateSelectionSummary(features) {
               <thead>
                 <tr>
                   <th>Field</th>
+                  <th>Distribution</th>
                   <th>Values</th>
                   <th>NULLs</th>
                   <th>Min</th>
                   <th>Max</th>
                   <th>Mean</th>
-                  <th>Distribution</th>
                 </tr>
               </thead>
               <tbody>${numericRows}</tbody>
@@ -438,6 +529,7 @@ function getSelectionBounds(startPoint, endPoint) {
 function setSelectionMode(enabled) {
   if (!enabled) {
     resetDragSelection();
+    moveSelectionState = null;
   }
 
   selectionModeEnabled = enabled;
@@ -466,6 +558,7 @@ function startSelection(event) {
 
   event.preventDefault();
   map.dragPan.disable();
+  removeSelectionOverlay();
 
   const canvas = map.getCanvasContainer();
   const startPoint = { x: event.point.x, y: event.point.y };
@@ -501,22 +594,56 @@ function endSelection() {
     return;
   }
 
-  const { startPoint, currentPoint } = dragSelection;
-  resetDragSelection();
+  const { startPoint, currentPoint, box } = dragSelection;
+  dragSelection = null;
+  map.dragPan.enable();
 
   if (!currentPoint) {
+    box.remove();
     return;
   }
 
   suppressNextMoveEnd = true;
 
   const selectionBounds = getSelectionBounds(startPoint, currentPoint);
-  const selectedFeatures = currentFeatureCollection.features.filter((feature) =>
-    isFeatureInsideSelection(feature, selectionBounds)
-  );
+  box.remove();
+  setSelectionOverlay(selectionBounds);
+  updateSelectedFeaturesFromBounds(selectionBounds, { preserveFilters: false });
+}
 
-  setSelectedFeatures(selectedFeatures);
-  statusText.textContent = `Selected ${selectedFeatures.length} features`;
+function moveSelectionOverlay(clientX, clientY) {
+  if (!moveSelectionState || !selectionOverlay) {
+    return;
+  }
+
+  const deltaX = clientX - moveSelectionState.startPoint.x;
+  const deltaY = clientY - moveSelectionState.startPoint.y;
+  const projectedBounds = moveSelectionState.startProjectedBounds;
+
+  const topLeft = map.unproject([projectedBounds.left + deltaX, projectedBounds.top + deltaY]);
+  const bottomRight = map.unproject([
+    projectedBounds.right + deltaX,
+    projectedBounds.bottom + deltaY
+  ]);
+
+  selectionOverlay.bounds = {
+    minX: Math.min(topLeft.lng, bottomRight.lng),
+    minY: Math.min(bottomRight.lat, topLeft.lat),
+    maxX: Math.max(topLeft.lng, bottomRight.lng),
+    maxY: Math.max(bottomRight.lat, topLeft.lat)
+  };
+
+  renderSelectionOverlay();
+  updateSelectedFeaturesFromBounds(selectionOverlay.bounds);
+}
+
+function endOverlayMove() {
+  if (!moveSelectionState) {
+    return;
+  }
+
+  moveSelectionState = null;
+  map.dragPan.enable();
 }
 
 function ensureDataLayers() {
@@ -740,6 +867,18 @@ map.on("load", async () => {
   selectionSummaryContent.addEventListener("click", handleSummaryClick);
 
   setDatasetPanelHidden(false);
+});
+
+document.addEventListener("mousemove", (event) => {
+  moveSelectionOverlay(event.clientX, event.clientY);
+});
+
+document.addEventListener("mouseup", () => {
+  endOverlayMove();
+});
+
+map.on("move", () => {
+  renderSelectionOverlay();
 });
 
 function showFeaturePopup(event) {
