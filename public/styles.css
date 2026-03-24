@@ -193,6 +193,42 @@ button {
   margin-bottom: 12px;
 }
 
+.categorical-filters {
+  margin-bottom: 12px;
+}
+
+.filter-section-title {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.categorical-filter-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.categorical-filter {
+  display: grid;
+  gap: 6px;
+}
+
+.categorical-filter span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.categorical-filter select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  font: inherit;
+  background: #fffefb;
+}
+
 .filter-tag {
   width: auto;
   margin-top: 0;

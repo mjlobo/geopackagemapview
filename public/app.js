@@ -43,7 +43,8 @@ let dragSelection = null;
 let datasetPanelHidden = false;
 let suppressNextMoveEnd = false;
 let baseSelectedFeatures = [];
-let activeValueFilters = new Map();
+let activeNumericFilters = new Map();
+let activeCategoricalFilters = new Map();
 let selectionOverlay = null;
 let moveSelectionState = null;
 
@@ -121,7 +122,7 @@ function buildHistogram(field, values, min, max) {
   }
 
   const maxBucket = Math.max(...buckets.map((bucket) => bucket.count), 1);
-  const activeFilter = activeValueFilters.get(field);
+  const activeFilter = activeNumericFilters.get(field);
 
   const bars = buckets
     .map((bucket) => {
@@ -165,7 +166,8 @@ function buildHistogram(field, values, min, max) {
 
 function clearSelection() {
   baseSelectedFeatures = [];
-  activeValueFilters.clear();
+  activeNumericFilters.clear();
+  activeCategoricalFilters.clear();
   removeSelectionOverlay();
   const empty = { type: "FeatureCollection", features: [] };
   map.getSource("selected-features").setData(empty);
@@ -262,7 +264,8 @@ function setSelectionOverlay(bounds) {
 
 function updateSelectedFeaturesFromBounds(bounds, { preserveFilters = true } = {}) {
   if (!preserveFilters) {
-    activeValueFilters.clear();
+    activeNumericFilters.clear();
+    activeCategoricalFilters.clear();
   }
 
   baseSelectedFeatures = currentFeatureCollection.features.filter((feature) =>
@@ -272,14 +275,14 @@ function updateSelectedFeaturesFromBounds(bounds, { preserveFilters = true } = {
 }
 
 function getFilteredSelectedFeatures() {
-  if (activeValueFilters.size === 0) {
+  if (activeNumericFilters.size === 0 && activeCategoricalFilters.size === 0) {
     return baseSelectedFeatures;
   }
 
   return baseSelectedFeatures.filter((feature) => {
     const properties = feature.properties || {};
 
-    for (const [field, range] of activeValueFilters.entries()) {
+    for (const [field, range] of activeNumericFilters.entries()) {
       const value = properties[field];
       if (!isFiniteNumber(value)) {
         return false;
@@ -291,6 +294,17 @@ function getFilteredSelectedFeatures() {
         : value >= range.min && value < range.max;
 
       if (!inRange) {
+        return false;
+      }
+    }
+
+    for (const [field, selectedValue] of activeCategoricalFilters.entries()) {
+      const value = properties[field];
+      if (value === null || value === undefined) {
+        return false;
+      }
+
+      if (String(value) !== selectedValue) {
         return false;
       }
     }
@@ -309,6 +323,7 @@ function updateSelectionSummary(features) {
 
   const numericStats = new Map();
   const nullCounts = new Map();
+  const categoricalStats = new Map();
 
   features.forEach((feature) => {
     const properties = feature.properties || {};
@@ -320,6 +335,10 @@ function updateSelectionSummary(features) {
       }
 
       if (!isFiniteNumber(value)) {
+        const normalizedValue = String(value);
+        const entry = categoricalStats.get(key) || new Map();
+        entry.set(normalizedValue, (entry.get(normalizedValue) || 0) + 1);
+        categoricalStats.set(key, entry);
         return;
       }
 
@@ -366,32 +385,81 @@ function updateSelectionSummary(features) {
     .map(([key, count]) => `<li><strong>${escapeHtml(key)}</strong>: ${count}</li>`)
     .join("");
 
-  const activeFilterTags = [...activeValueFilters.entries()]
-    .map(
-      ([field, range]) => `
+  const categoricalFilterRows = [...categoricalStats.entries()]
+    .filter(([, values]) => values.size > 1)
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([field, values]) => {
+      const currentValue = activeCategoricalFilters.get(field) || "";
+      const options = [...values.entries()]
+        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+        .map(
+          ([value, count]) => `
+            <option value="${escapeHtml(value)}" ${currentValue === value ? "selected" : ""}>
+              ${escapeHtml(value)} (${count})
+            </option>
+          `
+        )
+        .join("");
+
+      return `
+        <label class="categorical-filter">
+          <span>${escapeHtml(field)}</span>
+          <select data-action="categorical-filter" data-field="${escapeHtml(field)}">
+            <option value="">All values</option>
+            ${options}
+          </select>
+        </label>
+      `;
+    })
+    .join("");
+
+  const numericFilterTags = [...activeNumericFilters.entries()].map(
+    ([field, range]) => `
         <button
           type="button"
           class="filter-tag"
-          data-action="clear-filter"
+          data-action="clear-numeric-filter"
           data-field="${escapeHtml(field)}"
         >
           ${escapeHtml(field)}: ${formatNumber(range.min)} - ${formatNumber(range.max)} x
         </button>
       `
-    )
-    .join("");
+  );
+
+  const categoricalFilterTags = [...activeCategoricalFilters.entries()].map(
+    ([field, value]) => `
+      <button
+        type="button"
+        class="filter-tag"
+        data-action="clear-categorical-filter"
+        data-field="${escapeHtml(field)}"
+      >
+        ${escapeHtml(field)}: ${escapeHtml(value)} x
+      </button>
+    `
+  );
+
+  const activeFilterTags = [...numericFilterTags, ...categoricalFilterTags].join("");
 
   selectionSummaryContent.innerHTML = `
     <div class="summary-toolbar">
       <p class="summary-kpi">${features.length} selected feature${features.length === 1 ? "" : "s"}</p>
       ${
-        activeValueFilters.size > 0
+        activeNumericFilters.size > 0 || activeCategoricalFilters.size > 0
           ? `<button type="button" class="clear-filters-button" data-action="clear-all-filters">
               Clear value filters
             </button>`
           : ""
       }
     </div>
+    ${
+      categoricalFilterRows
+        ? `<div class="categorical-filters">
+            <p class="filter-section-title">Categorical filters</p>
+            <div class="categorical-filter-grid">${categoricalFilterRows}</div>
+          </div>`
+        : ""
+    }
     ${
       activeFilterTags
         ? `<div class="active-filters">${activeFilterTags}</div>`
@@ -436,16 +504,18 @@ function renderSelectedFeatures() {
   });
   updateSelectionSummary(filteredFeatures);
   if (baseSelectedFeatures.length > 0) {
+    const filterCount = activeNumericFilters.size + activeCategoricalFilters.size;
     statusText.textContent =
-      activeValueFilters.size > 0
-        ? `Selected ${filteredFeatures.length} features after value filters`
+      filterCount > 0
+        ? `Selected ${filteredFeatures.length} features after filters`
         : `Selected ${filteredFeatures.length} features`;
   }
 }
 
 function setSelectedFeatures(features) {
   baseSelectedFeatures = features;
-  activeValueFilters.clear();
+  activeNumericFilters.clear();
+  activeCategoricalFilters.clear();
   renderSelectedFeatures();
 }
 
@@ -804,13 +874,20 @@ function handleSummaryClick(event) {
   const action = button.dataset.action;
 
   if (action === "clear-all-filters") {
-    activeValueFilters.clear();
+    activeNumericFilters.clear();
+    activeCategoricalFilters.clear();
     renderSelectedFeatures();
     return;
   }
 
-  if (action === "clear-filter") {
-    activeValueFilters.delete(button.dataset.field);
+  if (action === "clear-numeric-filter") {
+    activeNumericFilters.delete(button.dataset.field);
+    renderSelectedFeatures();
+    return;
+  }
+
+  if (action === "clear-categorical-filter") {
+    activeCategoricalFilters.delete(button.dataset.field);
     renderSelectedFeatures();
     return;
   }
@@ -819,12 +896,12 @@ function handleSummaryClick(event) {
     const field = button.dataset.field;
     const min = Number(button.dataset.min);
     const max = Number(button.dataset.max);
-    const current = activeValueFilters.get(field);
+    const current = activeNumericFilters.get(field);
 
     if (current && current.min === min && current.max === max) {
-      activeValueFilters.delete(field);
+      activeNumericFilters.delete(field);
     } else {
-      activeValueFilters.set(field, {
+      activeNumericFilters.set(field, {
         min,
         max,
         originalMax: max
@@ -833,6 +910,24 @@ function handleSummaryClick(event) {
 
     renderSelectedFeatures();
   }
+}
+
+function handleSummaryChange(event) {
+  const select = event.target.closest("select[data-action='categorical-filter']");
+  if (!select) {
+    return;
+  }
+
+  const field = select.dataset.field;
+  const value = select.value;
+
+  if (!value) {
+    activeCategoricalFilters.delete(field);
+  } else {
+    activeCategoricalFilters.set(field, value);
+  }
+
+  renderSelectedFeatures();
 }
 
 map.on("load", async () => {
@@ -865,6 +960,7 @@ map.on("load", async () => {
     }
   });
   selectionSummaryContent.addEventListener("click", handleSummaryClick);
+  selectionSummaryContent.addEventListener("change", handleSummaryChange);
 
   setDatasetPanelHidden(false);
 });
