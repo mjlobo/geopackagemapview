@@ -284,6 +284,7 @@ button {
 }
 
 .histogram {
+  position: relative;
   display: flex;
   align-items: end;
   gap: 2px;
@@ -292,9 +293,12 @@ button {
   padding: 4px;
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(15, 118, 110, 0.02));
+  user-select: none;
 }
 
 .histogram-bar {
+  position: relative;
+  z-index: 1;
   width: auto;
   flex: 1 1 0;
   min-width: 6px;
@@ -314,6 +318,22 @@ button {
 
 .histogram-bar.is-active {
   background: #ea580c;
+  opacity: 1;
+}
+
+.histogram-brush {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border: 1px solid rgba(180, 83, 9, 0.95);
+  background: rgba(251, 191, 36, 0.2);
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 80ms linear;
+}
+
+.histogram-brush.is-visible {
   opacity: 1;
 }
 

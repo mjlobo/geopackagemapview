@@ -47,6 +47,7 @@ let activeNumericFilters = new Map();
 let activeCategoricalFilters = new Map();
 let selectionOverlay = null;
 let moveSelectionState = null;
+let histogramBrushState = null;
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -126,19 +127,20 @@ function buildHistogram(field, values, min, max) {
 
   const bars = buckets
     .map((bucket) => {
-      const isActive =
+      const overlapsActiveFilter =
         activeFilter &&
-        Number(activeFilter.min) === Number(bucket.rangeMin) &&
-        Number(activeFilter.max) === Number(bucket.rangeMax);
+        bucket.rangeMax >= activeFilter.min &&
+        bucket.rangeMin <= activeFilter.max;
 
       return `
         <button
           type="button"
-          class="histogram-bar${isActive ? " is-active" : ""}"
-          data-action="filter-bucket"
+          class="histogram-bar${overlapsActiveFilter ? " is-active" : ""}"
           data-field="${escapeHtml(field)}"
+          data-index="${bucket.index}"
           data-min="${bucket.rangeMin}"
           data-max="${bucket.rangeMax}"
+          data-original-max="${max}"
           title="${escapeHtml(
             `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)} (${bucket.count})`
           )}"
@@ -157,11 +159,66 @@ function buildHistogram(field, values, min, max) {
         <span>${formatNumber(min)}</span>
         <span>${formatNumber(max)}</span>
       </div>
-      <div class="histogram">
+      <div class="histogram" data-field="${escapeHtml(field)}">
         ${bars}
       </div>
     </div>
   `;
+}
+
+function getHistogramBars(histogramElement) {
+  return [...histogramElement.querySelectorAll(".histogram-bar")];
+}
+
+function getHistogramBrushRange(histogramElement, startIndex, endIndex) {
+  const bars = getHistogramBars(histogramElement);
+  const start = Math.max(0, Math.min(startIndex, endIndex));
+  const end = Math.min(bars.length - 1, Math.max(startIndex, endIndex));
+  return { bars, start, end };
+}
+
+function getHistogramBarIndex(histogramElement, clientX) {
+  const bars = getHistogramBars(histogramElement);
+  if (bars.length === 0) {
+    return -1;
+  }
+
+  const rect = histogramElement.getBoundingClientRect();
+  const ratio = Math.min(0.999999, Math.max(0, (clientX - rect.left) / rect.width));
+  return Math.floor(ratio * bars.length);
+}
+
+function ensureHistogramBrushElement(histogramElement) {
+  let brush = histogramElement.querySelector(".histogram-brush");
+  if (!brush) {
+    brush = document.createElement("div");
+    brush.className = "histogram-brush";
+    histogramElement.appendChild(brush);
+  }
+  return brush;
+}
+
+function updateHistogramBrushPreview(histogramElement, startIndex, endIndex) {
+  const { bars, start, end } = getHistogramBrushRange(histogramElement, startIndex, endIndex);
+  if (bars.length === 0) {
+    return;
+  }
+
+  const firstRect = bars[start].getBoundingClientRect();
+  const lastRect = bars[end].getBoundingClientRect();
+  const histogramRect = histogramElement.getBoundingClientRect();
+  const brush = ensureHistogramBrushElement(histogramElement);
+
+  brush.style.left = `${firstRect.left - histogramRect.left}px`;
+  brush.style.width = `${lastRect.right - firstRect.left}px`;
+  brush.classList.add("is-visible");
+}
+
+function clearHistogramBrushPreview(histogramElement) {
+  const brush = histogramElement?.querySelector(".histogram-brush");
+  if (brush) {
+    brush.classList.remove("is-visible");
+  }
 }
 
 function clearSelection() {
@@ -892,24 +949,6 @@ function handleSummaryClick(event) {
     return;
   }
 
-  if (action === "filter-bucket") {
-    const field = button.dataset.field;
-    const min = Number(button.dataset.min);
-    const max = Number(button.dataset.max);
-    const current = activeNumericFilters.get(field);
-
-    if (current && current.min === min && current.max === max) {
-      activeNumericFilters.delete(field);
-    } else {
-      activeNumericFilters.set(field, {
-        min,
-        max,
-        originalMax: max
-      });
-    }
-
-    renderSelectedFeatures();
-  }
 }
 
 function handleSummaryChange(event) {
@@ -925,6 +964,80 @@ function handleSummaryChange(event) {
     activeCategoricalFilters.delete(field);
   } else {
     activeCategoricalFilters.set(field, value);
+  }
+
+  renderSelectedFeatures();
+}
+
+function startHistogramBrush(event) {
+  const histogram = event.target.closest(".histogram");
+  if (!histogram || event.button !== 0) {
+    return;
+  }
+
+  const startIndex = getHistogramBarIndex(histogram, event.clientX);
+  if (startIndex < 0) {
+    return;
+  }
+
+  event.preventDefault();
+
+  histogramBrushState = {
+    field: histogram.dataset.field,
+    histogram,
+    startIndex,
+    currentIndex: startIndex
+  };
+
+  updateHistogramBrushPreview(histogram, startIndex, startIndex);
+}
+
+function moveHistogramBrush(event) {
+  if (!histogramBrushState) {
+    return;
+  }
+
+  const currentIndex = getHistogramBarIndex(histogramBrushState.histogram, event.clientX);
+  if (currentIndex < 0) {
+    return;
+  }
+
+  histogramBrushState.currentIndex = currentIndex;
+  updateHistogramBrushPreview(
+    histogramBrushState.histogram,
+    histogramBrushState.startIndex,
+    histogramBrushState.currentIndex
+  );
+}
+
+function endHistogramBrush() {
+  if (!histogramBrushState) {
+    return;
+  }
+
+  const { histogram, field, startIndex, currentIndex } = histogramBrushState;
+  const { bars, start, end } = getHistogramBrushRange(histogram, startIndex, currentIndex);
+  clearHistogramBrushPreview(histogram);
+  histogramBrushState = null;
+
+  if (bars.length === 0) {
+    return;
+  }
+
+  const min = Number(bars[start].dataset.min);
+  const max = Number(bars[end].dataset.max);
+  const originalMax = Number(bars[end].dataset.originalMax);
+  const current = activeNumericFilters.get(field);
+
+  if (
+    current &&
+    Number(current.min) === min &&
+    Number(current.max) === max &&
+    Number(current.originalMax) === originalMax
+  ) {
+    activeNumericFilters.delete(field);
+  } else {
+    activeNumericFilters.set(field, { min, max, originalMax });
   }
 
   renderSelectedFeatures();
@@ -961,16 +1074,19 @@ map.on("load", async () => {
   });
   selectionSummaryContent.addEventListener("click", handleSummaryClick);
   selectionSummaryContent.addEventListener("change", handleSummaryChange);
+  selectionSummaryContent.addEventListener("mousedown", startHistogramBrush);
 
   setDatasetPanelHidden(false);
 });
 
 document.addEventListener("mousemove", (event) => {
   moveSelectionOverlay(event.clientX, event.clientY);
+  moveHistogramBrush(event);
 });
 
 document.addEventListener("mouseup", () => {
   endOverlayMove();
+  endHistogramBrush();
 });
 
 map.on("move", () => {
