@@ -7,6 +7,7 @@ const limitInput = document.getElementById("limitInput");
 const reloadButton = document.getElementById("reloadButton");
 const selectionToggleButton = document.getElementById("selectionToggleButton");
 const selectionSummaryContent = document.getElementById("selectionSummaryContent");
+const selectedFeaturesTableContent = document.getElementById("selectedFeaturesTableContent");
 const panelToggleButton = document.getElementById("panelToggleButton");
 const datasetPanelSection = document.getElementById("datasetPanelSection");
 
@@ -62,6 +63,18 @@ function formatProperties(properties) {
     .slice(0, 8)
     .map(([key, value]) => `<div><strong>${key}</strong>: ${value ?? ""}</div>`)
     .join("");
+}
+
+function formatAttributeValue(value) {
+  if (value === null || value === undefined) {
+    return "<span class=\"null-value\">NULL</span>";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  return escapeHtml(value);
 }
 
 function escapeHtml(value) {
@@ -230,6 +243,7 @@ function clearSelection() {
   map.getSource("selected-features").setData(empty);
   selectedCount.textContent = "0";
   selectionSummaryContent.innerHTML = "No selection yet.";
+  selectedFeaturesTableContent.innerHTML = "No selection yet.";
 }
 
 function resetDragSelection() {
@@ -553,6 +567,54 @@ function updateSelectionSummary(features) {
   `;
 }
 
+function updateSelectedFeaturesTable(features) {
+  if (baseSelectedFeatures.length === 0) {
+    selectedFeaturesTableContent.innerHTML = "No selection yet.";
+    return;
+  }
+
+  if (features.length === 0) {
+    selectedFeaturesTableContent.innerHTML = "No features match the current filters.";
+    return;
+  }
+
+  const columns = new Set(["feature_id"]);
+  features.forEach((feature) => {
+    Object.keys(feature.properties || {}).forEach((key) => columns.add(key));
+  });
+
+  const orderedColumns = [...columns];
+  const headerRow = orderedColumns
+    .map((column) => `<th>${escapeHtml(column)}</th>`)
+    .join("");
+
+  const bodyRows = features
+    .map((feature) => {
+      const cells = orderedColumns
+        .map((column) => {
+          const value =
+            column === "feature_id" ? feature.id ?? "" : feature.properties?.[column];
+          return `<td>${formatAttributeValue(value)}</td>`;
+        })
+        .join("");
+
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  selectedFeaturesTableContent.innerHTML = `
+    <p class="summary-kpi">${features.length} row${features.length === 1 ? "" : "s"}</p>
+    <div class="feature-table-wrap">
+      <table class="feature-table">
+        <thead>
+          <tr>${headerRow}</tr>
+        </thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderSelectedFeatures() {
   const filteredFeatures = getFilteredSelectedFeatures();
   map.getSource("selected-features").setData({
@@ -560,6 +622,7 @@ function renderSelectedFeatures() {
     features: filteredFeatures
   });
   updateSelectionSummary(filteredFeatures);
+  updateSelectedFeaturesTable(filteredFeatures);
   if (baseSelectedFeatures.length > 0) {
     const filterCount = activeNumericFilters.size + activeCategoricalFilters.size;
     statusText.textContent =

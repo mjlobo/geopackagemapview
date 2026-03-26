@@ -246,7 +246,20 @@ button {
   border: 1px solid var(--border);
 }
 
+.feature-table-wrap {
+  overflow: auto;
+  max-height: 360px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
 .summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fffefb;
+}
+
+.feature-table {
   width: 100%;
   border-collapse: collapse;
   background: #fffefb;
@@ -261,6 +274,15 @@ button {
   vertical-align: middle;
 }
 
+.feature-table th,
+.feature-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(31, 42, 44, 0.08);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
 .summary-table th {
   position: sticky;
   top: 0;
@@ -268,6 +290,20 @@ button {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.feature-table th {
+  position: sticky;
+  top: 0;
+  background: #f7f3ea;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.null-value {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .histogram-cell {
