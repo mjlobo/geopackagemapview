@@ -8,6 +8,8 @@ const reloadButton = document.getElementById("reloadButton");
 const selectionToggleButton = document.getElementById("selectionToggleButton");
 const selectionSummaryContent = document.getElementById("selectionSummaryContent");
 const selectedFeaturesTableContent = document.getElementById("selectedFeaturesTableContent");
+const selectedFeaturesPanel = document.getElementById("selectedFeaturesPanel");
+const selectedFeaturesPanelHandle = document.getElementById("selectedFeaturesPanelHandle");
 const panelToggleButton = document.getElementById("panelToggleButton");
 const datasetPanelSection = document.getElementById("datasetPanelSection");
 
@@ -49,6 +51,7 @@ let activeCategoricalFilters = new Map();
 let selectionOverlay = null;
 let moveSelectionState = null;
 let histogramBrushState = null;
+let tablePanelDragState = null;
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -181,6 +184,46 @@ function buildHistogram(field, values, min, max) {
 
 function getHistogramBars(histogramElement) {
   return [...histogramElement.querySelectorAll(".histogram-bar")];
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function startTablePanelDrag(event) {
+  if (window.innerWidth <= 900 || event.button !== 0) {
+    return;
+  }
+
+  const rect = selectedFeaturesPanel.getBoundingClientRect();
+  tablePanelDragState = {
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top
+  };
+
+  selectedFeaturesPanel.style.left = `${rect.left}px`;
+  selectedFeaturesPanel.style.top = `${rect.top}px`;
+  selectedFeaturesPanel.style.right = "auto";
+  event.preventDefault();
+}
+
+function moveTablePanel(clientX, clientY) {
+  if (!tablePanelDragState || window.innerWidth <= 900) {
+    return;
+  }
+
+  const panelRect = selectedFeaturesPanel.getBoundingClientRect();
+  const maxLeft = Math.max(16, window.innerWidth - panelRect.width - 16);
+  const maxTop = Math.max(16, window.innerHeight - panelRect.height - 16);
+  const left = clamp(clientX - tablePanelDragState.offsetX, 16, maxLeft);
+  const top = clamp(clientY - tablePanelDragState.offsetY, 16, maxTop);
+
+  selectedFeaturesPanel.style.left = `${left}px`;
+  selectedFeaturesPanel.style.top = `${top}px`;
+}
+
+function endTablePanelDrag() {
+  tablePanelDragState = null;
 }
 
 function getHistogramBrushRange(histogramElement, startIndex, endIndex) {
@@ -1145,16 +1188,20 @@ map.on("load", async () => {
 document.addEventListener("mousemove", (event) => {
   moveSelectionOverlay(event.clientX, event.clientY);
   moveHistogramBrush(event);
+  moveTablePanel(event.clientX, event.clientY);
 });
 
 document.addEventListener("mouseup", () => {
   endOverlayMove();
   endHistogramBrush();
+  endTablePanelDrag();
 });
 
 map.on("move", () => {
   renderSelectionOverlay();
 });
+
+selectedFeaturesPanelHandle.addEventListener("mousedown", startTablePanelDrag);
 
 function showFeaturePopup(event) {
   const feature = event.features?.[0];

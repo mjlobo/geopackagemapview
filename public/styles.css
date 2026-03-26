@@ -149,6 +149,22 @@ button {
   border: 1px solid var(--border);
 }
 
+.floating-table-panel {
+  position: fixed;
+  top: 28px;
+  right: 28px;
+  width: min(760px, calc(100vw - 420px));
+  max-width: calc(100vw - 48px);
+  margin-top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow);
+}
+
+.floating-panel-handle {
+  cursor: move;
+  user-select: none;
+}
+
 .summary-header .eyebrow {
   margin-bottom: 6px;
 }
@@ -423,5 +439,16 @@ button {
   .map-wrap,
   #map {
     min-height: 60vh;
+  }
+
+  .floating-table-panel {
+    position: static;
+    width: auto;
+    max-width: none;
+    margin-top: 28px;
+  }
+
+  .floating-panel-handle {
+    cursor: default;
   }
 }
