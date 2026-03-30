@@ -2,6 +2,8 @@ const statusText = document.getElementById("statusText");
 const fileName = document.getElementById("fileName");
 const featureCount = document.getElementById("featureCount");
 const selectedCount = document.getElementById("selectedCount");
+const uploadInput = document.getElementById("uploadInput");
+const uploadButton = document.getElementById("uploadButton");
 const layerSelect = document.getElementById("layerSelect");
 const limitInput = document.getElementById("limitInput");
 const reloadButton = document.getElementById("reloadButton");
@@ -58,6 +60,27 @@ async function getJson(url) {
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
   }
+  return response.json();
+}
+
+async function postBinary(url, body, headers = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body
+  });
+
+  if (!response.ok) {
+    let message = `Request failed: ${response.status}`;
+    try {
+      const payload = await response.json();
+      message = payload.error || payload.message || message;
+    } catch (error) {
+      // Ignore non-JSON error bodies.
+    }
+    throw new Error(message);
+  }
+
   return response.json();
 }
 
@@ -180,6 +203,26 @@ function buildHistogram(field, values, min, max) {
       </div>
     </div>
   `;
+}
+
+async function initialize() {
+  const metadata = await getJson("/api/metadata");
+  fileName.textContent = `${metadata.fileName} (${metadata.sizeMB} MB)`;
+
+  layerSelect.innerHTML = "";
+  const layers = metadata.tables.filter((table) => table.data_type === "features");
+  layers.forEach((layer) => {
+    const option = document.createElement("option");
+    option.value = layer.table_name;
+    option.textContent = layer.table_name;
+    layerSelect.appendChild(option);
+  });
+
+  if (layers.some((layer) => layer.table_name === "batiment_construction")) {
+    layerSelect.value = "batiment_construction";
+  } else if (layers.length > 0) {
+    layerSelect.value = layers[0].table_name;
+  }
 }
 
 function getHistogramBars(histogramElement) {
@@ -1011,20 +1054,31 @@ async function loadFeatures() {
   }
 }
 
-async function initialize() {
-  const metadata = await getJson("/api/metadata");
-  fileName.textContent = `${metadata.fileName} (${metadata.sizeMB} MB)`;
+async function uploadGeoPackage() {
+  const file = uploadInput.files?.[0];
+  if (!file) {
+    statusText.textContent = "Choose a .gpkg file first.";
+    return;
+  }
 
-  const layers = metadata.tables.filter((table) => table.data_type === "features");
-  layers.forEach((layer) => {
-    const option = document.createElement("option");
-    option.value = layer.table_name;
-    option.textContent = layer.table_name;
-    layerSelect.appendChild(option);
-  });
+  uploadButton.disabled = true;
+  statusText.textContent = `Uploading ${file.name}...`;
 
-  if (layers.some((layer) => layer.table_name === "batiment_construction")) {
-    layerSelect.value = "batiment_construction";
+  try {
+    await postBinary("/api/upload", file, {
+      "Content-Type": "application/octet-stream",
+      "X-File-Name": file.name
+    });
+
+    clearSelection();
+    await initialize();
+    await loadFeatures();
+    statusText.textContent = `Uploaded ${file.name}`;
+  } catch (error) {
+    statusText.textContent = error.message;
+  } finally {
+    uploadButton.disabled = false;
+    uploadInput.value = "";
   }
 }
 
@@ -1168,6 +1222,7 @@ map.on("load", async () => {
   map.on("mouseleave", endSelection);
 
   reloadButton.addEventListener("click", loadFeatures);
+  uploadButton.addEventListener("click", uploadGeoPackage);
   layerSelect.addEventListener("change", loadFeatures);
   panelToggleButton.addEventListener("click", () => {
     setDatasetPanelHidden(!datasetPanelHidden);

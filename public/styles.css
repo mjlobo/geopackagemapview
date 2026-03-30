@@ -76,6 +76,16 @@ h1 {
   font-weight: 600;
 }
 
+.upload-row {
+  display: grid;
+  gap: 10px;
+}
+
+.upload-row input[type="file"] {
+  width: 100%;
+  font: inherit;
+}
+
 .field select,
 .field input,
 button {

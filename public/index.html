@@ -26,6 +26,14 @@
         </button>
 
         <section id="datasetPanelSection">
+          <div class="field">
+            <span>GeoPackage</span>
+            <div class="upload-row">
+              <input id="uploadInput" type="file" accept=".gpkg,application/geopackage+sqlite3" />
+              <button id="uploadButton" type="button">Upload GeoPackage</button>
+            </div>
+          </div>
+
           <label class="field">
             <span>Layer</span>
             <select id="layerSelect"></select>

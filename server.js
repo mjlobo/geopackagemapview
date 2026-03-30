@@ -29,12 +29,12 @@ function resolveDataFile() {
   return gpkgFiles[0];
 }
 
-const DATA_FILE = resolveDataFile();
+let currentDataFile = resolveDataFile();
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Range");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Range,X-File-Name");
 }
 
 function sendJson(res, statusCode, payload) {
@@ -50,11 +50,11 @@ function sendText(res, statusCode, message) {
 }
 
 async function getFileInfo() {
-  const stats = await fs.promises.stat(DATA_FILE);
+  const stats = await fs.promises.stat(currentDataFile);
 
   return {
-    fileName: path.basename(DATA_FILE),
-    absolutePath: DATA_FILE,
+    fileName: path.basename(currentDataFile),
+    absolutePath: currentDataFile,
     sizeBytes: stats.size,
     sizeMB: Number((stats.size / (1024 * 1024)).toFixed(2)),
     lastModified: stats.mtime.toISOString()
@@ -64,7 +64,7 @@ async function getFileInfo() {
 async function runSql(sql) {
   const { stdout } = await execFileAsync("sqlite3", [
     "-json",
-    DATA_FILE,
+    currentDataFile,
     sql
   ]);
 
@@ -146,7 +146,7 @@ async function serveStaticFile(res, filePath) {
 }
 
 async function extractGeoJson(params) {
-  const args = [PYTHON_SCRIPT, "--file", DATA_FILE, "--layer", params.layer];
+  const args = [PYTHON_SCRIPT, "--file", currentDataFile, "--layer", params.layer];
 
   if (params.limit) {
     args.push("--limit", String(params.limit));
@@ -164,9 +164,9 @@ async function extractGeoJson(params) {
 }
 
 async function streamFile(req, res) {
-  const stats = await fs.promises.stat(DATA_FILE);
+  const stats = await fs.promises.stat(currentDataFile);
   const rangeHeader = req.headers.range;
-  const fileName = path.basename(DATA_FILE);
+  const fileName = path.basename(currentDataFile);
 
   setCorsHeaders(res);
   res.setHeader("Accept-Ranges", "bytes");
@@ -175,7 +175,7 @@ async function streamFile(req, res) {
 
   if (!rangeHeader) {
     res.writeHead(200, { "Content-Length": stats.size });
-    fs.createReadStream(DATA_FILE).pipe(res);
+    fs.createReadStream(currentDataFile).pipe(res);
     return;
   }
 
@@ -204,7 +204,57 @@ async function streamFile(req, res) {
     "Content-Range": `bytes ${start}-${end}/${stats.size}`
   });
 
-  fs.createReadStream(DATA_FILE, { start, end }).pipe(res);
+  fs.createReadStream(currentDataFile, { start, end }).pipe(res);
+}
+
+function sanitizeUploadFileName(fileName) {
+  const normalized = path.basename(fileName || "").replace(/[^a-zA-Z0-9._-]/g, "_");
+  if (!normalized || !normalized.toLowerCase().endsWith(".gpkg")) {
+    return null;
+  }
+
+  return normalized;
+}
+
+async function uploadGeoPackage(req, res) {
+  const headerValue = req.headers["x-file-name"];
+  const fileName = sanitizeUploadFileName(Array.isArray(headerValue) ? headerValue[0] : headerValue);
+
+  if (!fileName) {
+    sendJson(res, 400, { error: "A valid .gpkg filename is required in the X-File-Name header." });
+    return;
+  }
+
+  await fs.promises.mkdir(DATA_DIR, { recursive: true });
+
+  const tempPath = path.join(DATA_DIR, `${fileName}.uploading`);
+  const targetPath = path.join(DATA_DIR, fileName);
+
+  await new Promise((resolve, reject) => {
+    const writeStream = fs.createWriteStream(tempPath);
+
+    req.on("error", reject);
+    writeStream.on("error", reject);
+    writeStream.on("finish", resolve);
+    req.pipe(writeStream);
+  });
+
+  try {
+    await execFileAsync("sqlite3", [tempPath, "SELECT name FROM sqlite_master LIMIT 1;"]);
+  } catch (error) {
+    await fs.promises.unlink(tempPath).catch(() => {});
+    sendJson(res, 400, { error: "The uploaded file is not a readable SQLite/GeoPackage file." });
+    return;
+  }
+
+  await fs.promises.rename(tempPath, targetPath);
+  currentDataFile = targetPath;
+
+  sendJson(res, 200, {
+    ok: true,
+    fileName,
+    currentFile: currentDataFile
+  });
 }
 
 const server = http.createServer(async (req, res) => {
@@ -262,6 +312,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/upload") {
+      await uploadGeoPackage(req, res);
+      return;
+    }
+
     if (req.method === "GET" && (url.pathname === "/" || url.pathname.startsWith("/public/"))) {
       const relativePath = url.pathname === "/" ? "index.html" : url.pathname.replace(/^\/public\//, "");
       await serveStaticFile(res, path.join(PUBLIC_DIR, relativePath));
@@ -277,7 +332,8 @@ const server = http.createServer(async (req, res) => {
         "GET /api/tables",
         "GET /api/metadata",
         "GET /api/features?layer=batiment_construction&limit=500&bbox=minLon,minLat,maxLon,maxLat",
-        "GET /api/file"
+        "GET /api/file",
+        "POST /api/upload"
       ]
     });
   } catch (error) {
@@ -291,12 +347,12 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   server.listen(PORT, HOST, () => {
     console.log(`Backend listening on http://${HOST}:${PORT}`);
-    console.log(`Serving data file: ${DATA_FILE}`);
+    console.log(`Serving data file: ${currentDataFile}`);
   });
 }
 
 module.exports = {
-  DATA_FILE,
+  getCurrentDataFile: () => currentDataFile,
   getFileInfo,
   getTables,
   getMetadata,
