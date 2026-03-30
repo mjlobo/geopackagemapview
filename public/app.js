@@ -54,6 +54,7 @@ let selectionOverlay = null;
 let moveSelectionState = null;
 let histogramBrushState = null;
 let tablePanelDragState = null;
+let hasLoadedDataFile = false;
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -207,6 +208,33 @@ function buildHistogram(field, values, min, max) {
 
 async function initialize() {
   const metadata = await getJson("/api/metadata");
+  const hasDataFile =
+    metadata.hasDataFile !== undefined
+      ? metadata.hasDataFile
+      : Boolean(metadata.fileName || metadata.absolutePath);
+
+  if (!hasDataFile) {
+    hasLoadedDataFile = false;
+    currentFeatureCollection = { type: "FeatureCollection", features: [] };
+    fileName.textContent = "No file loaded";
+    featureCount.textContent = "0";
+    layerSelect.innerHTML = "";
+    layerSelect.disabled = true;
+    limitInput.disabled = true;
+    reloadButton.disabled = true;
+    selectionToggleButton.disabled = true;
+    clearSelection();
+    statusText.textContent = "No GeoPackage loaded. Upload one to start exploring.";
+    selectionSummaryContent.innerHTML = "Upload a GeoPackage to enable selection and filtering.";
+    selectedFeaturesTableContent.innerHTML = "Upload a GeoPackage to see selected features.";
+    return false;
+  }
+
+  hasLoadedDataFile = true;
+  layerSelect.disabled = false;
+  limitInput.disabled = false;
+  reloadButton.disabled = false;
+  selectionToggleButton.disabled = false;
   fileName.textContent = `${metadata.fileName} (${metadata.sizeMB} MB)`;
 
   layerSelect.innerHTML = "";
@@ -223,6 +251,8 @@ async function initialize() {
   } else if (layers.length > 0) {
     layerSelect.value = layers[0].table_name;
   }
+
+  return true;
 }
 
 function getHistogramBars(histogramElement) {
@@ -1019,8 +1049,16 @@ function ensureDataLayers() {
 }
 
 async function loadFeatures() {
+  if (!hasLoadedDataFile) {
+    return;
+  }
+
   const layer = layerSelect.value;
   if (!layer) {
+    currentFeatureCollection = { type: "FeatureCollection", features: [] };
+    featureCount.textContent = "0";
+    clearSelection();
+    statusText.textContent = "No feature layer available in the current GeoPackage.";
     return;
   }
 
@@ -1071,8 +1109,10 @@ async function uploadGeoPackage() {
     });
 
     clearSelection();
-    await initialize();
-    await loadFeatures();
+    const ready = await initialize();
+    if (ready) {
+      await loadFeatures();
+    }
     statusText.textContent = `Uploaded ${file.name}`;
   } catch (error) {
     statusText.textContent = error.message;
@@ -1205,8 +1245,10 @@ function endHistogramBrush() {
 
 map.on("load", async () => {
   ensureDataLayers();
-  await initialize();
-  await loadFeatures();
+  const ready = await initialize();
+  if (ready) {
+    await loadFeatures();
+  }
 
   map.on("moveend", () => {
     if (suppressNextMoveEnd) {

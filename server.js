@@ -16,20 +16,38 @@ function resolveDataFile() {
     return path.resolve(process.env.DATA_FILE);
   }
 
-  const gpkgFiles = fs
-    .readdirSync(DATA_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".gpkg"))
-    .map((entry) => path.join(DATA_DIR, entry.name))
-    .sort();
+  let gpkgFiles = [];
+
+  try {
+    gpkgFiles = fs
+      .readdirSync(DATA_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".gpkg"))
+      .map((entry) => path.join(DATA_DIR, entry.name))
+      .sort();
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
+  }
 
   if (gpkgFiles.length === 0) {
-    throw new Error(`No .gpkg file found in ${DATA_DIR}`);
+    return null;
   }
 
   return gpkgFiles[0];
 }
 
 let currentDataFile = resolveDataFile();
+
+function ensureCurrentDataFile() {
+  if (!currentDataFile) {
+    const error = new Error("No .gpkg file loaded. Upload a GeoPackage first.");
+    error.statusCode = 404;
+    throw error;
+  }
+}
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -50,6 +68,7 @@ function sendText(res, statusCode, message) {
 }
 
 async function getFileInfo() {
+  ensureCurrentDataFile();
   const stats = await fs.promises.stat(currentDataFile);
 
   return {
@@ -62,6 +81,7 @@ async function getFileInfo() {
 }
 
 async function runSql(sql) {
+  ensureCurrentDataFile();
   const { stdout } = await execFileAsync("sqlite3", [
     "-json",
     currentDataFile,
@@ -96,9 +116,23 @@ async function getTables() {
 }
 
 async function getMetadata() {
+  if (!currentDataFile) {
+    return {
+      hasDataFile: false,
+      fileName: null,
+      absolutePath: null,
+      sizeBytes: 0,
+      sizeMB: 0,
+      lastModified: null,
+      tableCount: 0,
+      tables: []
+    };
+  }
+
   const [fileInfo, tables] = await Promise.all([getFileInfo(), getTables()]);
 
   return {
+    hasDataFile: true,
     ...fileInfo,
     tableCount: tables.length,
     tables
@@ -146,6 +180,7 @@ async function serveStaticFile(res, filePath) {
 }
 
 async function extractGeoJson(params) {
+  ensureCurrentDataFile();
   const args = [PYTHON_SCRIPT, "--file", currentDataFile, "--layer", params.layer];
 
   if (params.limit) {
@@ -164,6 +199,7 @@ async function extractGeoJson(params) {
 }
 
 async function streamFile(req, res) {
+  ensureCurrentDataFile();
   const stats = await fs.promises.stat(currentDataFile);
   const rangeHeader = req.headers.range;
   const fileName = path.basename(currentDataFile);
@@ -337,8 +373,8 @@ const server = http.createServer(async (req, res) => {
       ]
     });
   } catch (error) {
-    sendJson(res, 500, {
-      error: "Internal server error",
+    sendJson(res, error.statusCode || 500, {
+      error: error.message,
       message: error.message
     });
   }
@@ -347,7 +383,11 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   server.listen(PORT, HOST, () => {
     console.log(`Backend listening on http://${HOST}:${PORT}`);
-    console.log(`Serving data file: ${currentDataFile}`);
+    console.log(
+      currentDataFile
+        ? `Serving data file: ${currentDataFile}`
+        : "No GeoPackage loaded. Upload one from the UI."
+    );
   });
 }
 
