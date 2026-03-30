@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Static GeoPackage Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="/public/static-upload.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="panel">
+        <p class="eyebrow">Static Upload Viewer</p>
+        <h1>Browser GeoPackage Map</h1>
+        <p class="panel-copy">
+          This page does not use the backend. It reads a GeoPackage directly in your browser.
+        </p>
+
+        <label class="field">
+          <span>GeoPackage</span>
+          <input id="fileInput" type="file" accept=".gpkg,application/geopackage+sqlite3" />
+        </label>
+
+        <label class="field">
+          <span>Layer</span>
+          <select id="layerSelect" disabled></select>
+        </label>
+
+        <label class="field">
+          <span>Feature limit</span>
+          <input id="limitInput" type="number" min="100" max="10000" step="100" value="3000" />
+        </label>
+
+        <button id="loadLayerButton" type="button" disabled>Load layer</button>
+
+        <dl class="stats">
+          <div>
+            <dt>File</dt>
+            <dd id="fileName">No file loaded</dd>
+          </div>
+          <div>
+            <dt>Loaded</dt>
+            <dd id="featureCount">0</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd id="statusText">Choose a GeoPackage to begin.</dd>
+          </div>
+        </dl>
+      </aside>
+
+      <main class="map-wrap">
+        <div id="map"></div>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/geopackage.min.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="/public/static-upload.js"></script>
+  </body>
+  </html>
