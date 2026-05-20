@@ -4,24 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GeoPackage Viewer</title>
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+    />
     <link rel="stylesheet" href="/public/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="panel">
         <div>
-          <p class="eyebrow">MapLibre Viewer</p>
-          <h1>GeoPackage Features</h1>
-          <p class="panel-copy">
-            Pick a layer, then move the map. The app requests only features inside the visible bounds.
-          </p>
+          <h2>RevL Map Prototype</h2>
+          <!-- <p class="panel-copy">
+            Pick a layer, then move the map. The app requests only features
+            inside the visible bounds.
+          </p> -->
         </div>
 
         <button id="panelToggleButton" type="button" class="secondary-button">
           Hide dataset controls
         </button>
-        <button id="selectionToggleButton" type="button" class="secondary-button">
+        <button
+          id="selectionToggleButton"
+          type="button"
+          class="secondary-button"
+        >
           Enable rectangle selection
         </button>
 
@@ -29,7 +36,11 @@
           <div class="field">
             <span>GeoPackage</span>
             <div class="upload-row">
-              <input id="uploadInput" type="file" accept=".gpkg,application/geopackage+sqlite3" />
+              <input
+                id="uploadInput"
+                type="file"
+                accept=".gpkg,application/geopackage+sqlite3"
+              />
               <button id="uploadButton" type="button">Upload GeoPackage</button>
             </div>
           </div>
@@ -41,10 +52,19 @@
 
           <label class="field">
             <span>Feature limit</span>
-            <input id="limitInput" type="number" min="50" max="5000" step="50" value="1000" />
+            <input
+              id="limitInput"
+              type="number"
+              min="50"
+              max="5000"
+              step="50"
+              value="1000"
+            />
           </label>
 
-          <button id="reloadButton" type="button">Reload visible features</button>
+          <button id="reloadButton" type="button">
+            Reload visible features
+          </button>
 
           <dl class="stats">
             <div>
@@ -70,7 +90,8 @@
           <div class="summary-header">
             <p class="eyebrow">Selection Summary</p>
             <p class="summary-copy">
-              Draw a rectangle on the map, drag it to reposition, then drag across histogram bars or use categorical comboboxes to refine.
+              Draw a rectangle on the map, drag it to reposition, then drag
+              across histogram bars or use categorical comboboxes to refine.
             </p>
           </div>
           <div id="selectionSummaryContent" class="summary-content">
@@ -78,11 +99,18 @@
           </div>
         </section>
 
-        <section id="selectedFeaturesPanel" class="selection-summary floating-table-panel">
-          <div id="selectedFeaturesPanelHandle" class="summary-header floating-panel-handle">
+        <section
+          id="selectedFeaturesPanel"
+          class="selection-summary floating-table-panel"
+        >
+          <div
+            id="selectedFeaturesPanelHandle"
+            class="summary-header floating-panel-handle"
+          >
             <p class="eyebrow">Selected Features</p>
             <p class="summary-copy">
-              The table below shows the attributes of the current filtered selection.
+              The table below shows the attributes of the current filtered
+              selection.
             </p>
           </div>
           <div id="selectedFeaturesTableContent" class="summary-content">
@@ -99,4 +127,4 @@
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="/public/app.js"></script>
   </body>
-  </html>
+</html>

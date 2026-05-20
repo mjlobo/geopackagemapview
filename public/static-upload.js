@@ -1,6 +1,8 @@
 const { GeoPackageAPI, setSqljsWasmLocateFile } = window.GeoPackage;
 
-setSqljsWasmLocateFile((file) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${file}`);
+setSqljsWasmLocateFile(
+  (file) => `https://unpkg.com/@ngageoint/geopackage@4.2.6/dist/${file}`,
+);
 
 const fileInput = document.getElementById("fileInput");
 const layerSelect = document.getElementById("layerSelect");
@@ -19,19 +21,19 @@ const map = new maplibregl.Map({
         type: "raster",
         tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
         tileSize: 256,
-        attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
-      }
+        attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+      },
     },
     layers: [
       {
         id: "carto",
         type: "raster",
-        source: "carto"
-      }
-    ]
+        source: "carto",
+      },
+    ],
   },
   center: [2.35, 48.85],
-  zoom: 12
+  zoom: 12,
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -42,7 +44,7 @@ function ensureDataSource() {
   if (!map.getSource("upload-features")) {
     map.addSource("upload-features", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: [] }
+      data: { type: "FeatureCollection", features: [] },
     });
   }
 
@@ -54,8 +56,8 @@ function ensureDataSource() {
       filter: ["==", ["geometry-type"], "Polygon"],
       paint: {
         "fill-color": "#0f766e",
-        "fill-opacity": 0.28
-      }
+        "fill-opacity": 0.28,
+      },
     });
   }
 
@@ -66,8 +68,8 @@ function ensureDataSource() {
       source: "upload-features",
       paint: {
         "line-color": "#0b5d57",
-        "line-width": 1
-      }
+        "line-width": 1,
+      },
     });
   }
 
@@ -81,8 +83,8 @@ function ensureDataSource() {
         "circle-radius": 4,
         "circle-color": "#b45309",
         "circle-stroke-width": 1,
-        "circle-stroke-color": "#fff7ed"
-      }
+        "circle-stroke-color": "#fff7ed",
+      },
     });
   }
 }
@@ -114,7 +116,9 @@ function getGeoJsonBounds(features) {
     coordinates.forEach(visitCoordinates);
   }
 
-  features.forEach((feature) => visitCoordinates(feature.geometry?.coordinates));
+  features.forEach((feature) =>
+    visitCoordinates(feature.geometry?.coordinates),
+  );
   return hasGeometry ? bounds : null;
 }
 
@@ -127,6 +131,7 @@ async function openGeoPackage(file) {
   }
 
   geoPackage = await GeoPackageAPI.open(new Uint8Array(arrayBuffer));
+  console.log("GeoPackage opened:", geoPackage);
   const featureTables = geoPackage.getFeatureTables();
 
   layerSelect.innerHTML = "";
@@ -140,7 +145,9 @@ async function openGeoPackage(file) {
   fileName.textContent = file.name;
   setLayerControlsEnabled(featureTables.length > 0);
   featureCount.textContent = "0";
-  map.getSource("upload-features").setData({ type: "FeatureCollection", features: [] });
+  map
+    .getSource("upload-features")
+    .setData({ type: "FeatureCollection", features: [] });
 
   statusText.textContent =
     featureTables.length > 0
@@ -160,7 +167,10 @@ async function loadSelectedLayer() {
     return;
   }
 
-  const limit = Math.max(100, Math.min(10000, Number(limitInput.value) || 3000));
+  const limit = Math.max(
+    100,
+    Math.min(10000, Number(limitInput.value) || 3000),
+  );
   statusText.textContent = `Loading ${table}...`;
 
   const features = [];
