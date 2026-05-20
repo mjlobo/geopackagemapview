@@ -8,10 +8,17 @@ const layerSelect = document.getElementById("layerSelect");
 const limitInput = document.getElementById("limitInput");
 const reloadButton = document.getElementById("reloadButton");
 const selectionToggleButton = document.getElementById("selectionToggleButton");
-const selectionSummaryContent = document.getElementById("selectionSummaryContent");
-const selectedFeaturesTableContent = document.getElementById("selectedFeaturesTableContent");
+const selectAllButton = document.getElementById("selectAllButton");
+const selectionSummaryContent = document.getElementById(
+  "selectionSummaryContent",
+);
+const selectedFeaturesTableContent = document.getElementById(
+  "selectedFeaturesTableContent",
+);
 const selectedFeaturesPanel = document.getElementById("selectedFeaturesPanel");
-const selectedFeaturesPanelHandle = document.getElementById("selectedFeaturesPanelHandle");
+const selectedFeaturesPanelHandle = document.getElementById(
+  "selectedFeaturesPanelHandle",
+);
 const panelToggleButton = document.getElementById("panelToggleButton");
 const datasetPanelSection = document.getElementById("datasetPanelSection");
 
@@ -24,19 +31,19 @@ const map = new maplibregl.Map({
         type: "raster",
         tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
         tileSize: 256,
-        attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
-      }
+        attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
+      },
     },
     layers: [
       {
         id: "carto",
         type: "raster",
-        source: "carto"
-      }
-    ]
+        source: "carto",
+      },
+    ],
   },
   center: [2.35, 48.85],
-  zoom: 12
+  zoom: 12,
 });
 
 map.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -68,7 +75,7 @@ async function postBinary(url, body, headers = {}) {
   const response = await fetch(url, {
     method: "POST",
     headers,
-    body
+    body,
   });
 
   if (!response.ok) {
@@ -94,7 +101,7 @@ function formatProperties(properties) {
 
 function formatAttributeValue(value) {
   if (value === null || value === undefined) {
-    return "<span class=\"null-value\">NULL</span>";
+    return '<span class="null-value">NULL</span>';
   }
 
   if (typeof value === "boolean") {
@@ -134,12 +141,15 @@ function buildHistogram(field, values, min, max) {
     return "";
   }
 
-  const bucketCount = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(values.length))));
+  const bucketCount = Math.min(
+    12,
+    Math.max(6, Math.ceil(Math.sqrt(values.length))),
+  );
   const buckets = new Array(bucketCount).fill(0).map((_, index) => ({
     count: 0,
     index,
     rangeMin: min,
-    rangeMax: max
+    rangeMax: max,
   }));
 
   if (min === max) {
@@ -182,10 +192,10 @@ function buildHistogram(field, values, min, max) {
           data-max="${bucket.rangeMax}"
           data-original-max="${max}"
           title="${escapeHtml(
-            `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)} (${bucket.count})`
+            `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)} (${bucket.count})`,
           )}"
           aria-label="${escapeHtml(
-            `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)}`
+            `${field}: ${formatNumber(bucket.rangeMin)} to ${formatNumber(bucket.rangeMax)}`,
           )}"
           style="height:${Math.max(8, (bucket.count / maxBucket) * 100)}%"
         ></button>
@@ -224,9 +234,12 @@ async function initialize() {
     reloadButton.disabled = true;
     selectionToggleButton.disabled = true;
     clearSelection();
-    statusText.textContent = "No GeoPackage loaded. Upload one to start exploring.";
-    selectionSummaryContent.innerHTML = "Upload a GeoPackage to enable selection and filtering.";
-    selectedFeaturesTableContent.innerHTML = "Upload a GeoPackage to see selected features.";
+    statusText.textContent =
+      "No GeoPackage loaded. Upload one to start exploring.";
+    selectionSummaryContent.innerHTML =
+      "Upload a GeoPackage to enable selection and filtering.";
+    selectedFeaturesTableContent.innerHTML =
+      "Upload a GeoPackage to see selected features.";
     return false;
   }
 
@@ -238,7 +251,9 @@ async function initialize() {
   fileName.textContent = `${metadata.fileName} (${metadata.sizeMB} MB)`;
 
   layerSelect.innerHTML = "";
-  const layers = metadata.tables.filter((table) => table.data_type === "features");
+  const layers = metadata.tables.filter(
+    (table) => table.data_type === "features",
+  );
   layers.forEach((layer) => {
     const option = document.createElement("option");
     option.value = layer.table_name;
@@ -271,7 +286,7 @@ function startTablePanelDrag(event) {
   const rect = selectedFeaturesPanel.getBoundingClientRect();
   tablePanelDragState = {
     offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top
+    offsetY: event.clientY - rect.top,
   };
 
   selectedFeaturesPanel.style.left = `${rect.left}px`;
@@ -313,7 +328,10 @@ function getHistogramBarIndex(histogramElement, clientX) {
   }
 
   const rect = histogramElement.getBoundingClientRect();
-  const ratio = Math.min(0.999999, Math.max(0, (clientX - rect.left) / rect.width));
+  const ratio = Math.min(
+    0.999999,
+    Math.max(0, (clientX - rect.left) / rect.width),
+  );
   return Math.floor(ratio * bars.length);
 }
 
@@ -328,7 +346,11 @@ function ensureHistogramBrushElement(histogramElement) {
 }
 
 function updateHistogramBrushPreview(histogramElement, startIndex, endIndex) {
-  const { bars, start, end } = getHistogramBrushRange(histogramElement, startIndex, endIndex);
+  const { bars, start, end } = getHistogramBrushRange(
+    histogramElement,
+    startIndex,
+    endIndex,
+  );
   if (bars.length === 0) {
     return;
   }
@@ -399,7 +421,9 @@ function createSelectionOverlayBox() {
     map.dragPan.disable();
     moveSelectionState = {
       startPoint: { x: event.clientX, y: event.clientY },
-      startProjectedBounds: getProjectedSelectionBounds(selectionOverlay.bounds)
+      startProjectedBounds: getProjectedSelectionBounds(
+        selectionOverlay.bounds,
+      ),
     };
   });
 
@@ -415,7 +439,7 @@ function getProjectedSelectionBounds(bounds) {
     left: topLeft.x,
     top: topLeft.y,
     right: bottomRight.x,
-    bottom: bottomRight.y
+    bottom: bottomRight.y,
   };
 }
 
@@ -440,7 +464,7 @@ function setSelectionOverlay(bounds) {
   if (!selectionOverlay) {
     selectionOverlay = {
       bounds,
-      box: createSelectionOverlayBox()
+      box: createSelectionOverlayBox(),
     };
   } else {
     selectionOverlay.bounds = bounds;
@@ -449,14 +473,23 @@ function setSelectionOverlay(bounds) {
   renderSelectionOverlay();
 }
 
-function updateSelectedFeaturesFromBounds(bounds, { preserveFilters = true } = {}) {
+function selectAllFeatures() {
+  const allFeatures = currentFeatureCollection.features;
+  baseSelectedFeatures = allFeatures;
+  renderSelectedFeatures();
+}
+
+function updateSelectedFeaturesFromBounds(
+  bounds,
+  { preserveFilters = true } = {},
+) {
   if (!preserveFilters) {
     activeNumericFilters.clear();
     activeCategoricalFilters.clear();
   }
 
   baseSelectedFeatures = currentFeatureCollection.features.filter((feature) =>
-    isFeatureInsideSelection(feature, bounds)
+    isFeatureInsideSelection(feature, bounds),
   );
   renderSelectedFeatures();
 }
@@ -534,7 +567,7 @@ function updateSelectionSummary(features) {
         min: value,
         max: value,
         sum: 0,
-        values: []
+        values: [],
       };
 
       stats.count += 1;
@@ -569,7 +602,10 @@ function updateSelectionSummary(features) {
   const nullOnlyRows = [...nullCounts.entries()]
     .filter(([key]) => !numericStats.has(key))
     .sort((left, right) => left[0].localeCompare(right[0]))
-    .map(([key, count]) => `<li><strong>${escapeHtml(key)}</strong>: ${count}</li>`)
+    .map(
+      ([key, count]) =>
+        `<li><strong>${escapeHtml(key)}</strong>: ${count}</li>`,
+    )
     .join("");
 
   const categoricalFilterRows = [...categoricalStats.entries()]
@@ -578,13 +614,16 @@ function updateSelectionSummary(features) {
     .map(([field, values]) => {
       const currentValue = activeCategoricalFilters.get(field) || "";
       const options = [...values.entries()]
-        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+        .sort(
+          (left, right) =>
+            right[1] - left[1] || left[0].localeCompare(right[0]),
+        )
         .map(
           ([value, count]) => `
             <option value="${escapeHtml(value)}" ${currentValue === value ? "selected" : ""}>
               ${escapeHtml(value)} (${count})
             </option>
-          `
+          `,
         )
         .join("");
 
@@ -610,7 +649,7 @@ function updateSelectionSummary(features) {
         >
           ${escapeHtml(field)}: ${formatNumber(range.min)} - ${formatNumber(range.max)} x
         </button>
-      `
+      `,
   );
 
   const categoricalFilterTags = [...activeCategoricalFilters.entries()].map(
@@ -623,10 +662,13 @@ function updateSelectionSummary(features) {
       >
         ${escapeHtml(field)}: ${escapeHtml(value)} x
       </button>
-    `
+    `,
   );
 
-  const activeFilterTags = [...numericFilterTags, ...categoricalFilterTags].join("");
+  const activeFilterTags = [
+    ...numericFilterTags,
+    ...categoricalFilterTags,
+  ].join("");
 
   selectionSummaryContent.innerHTML = `
     <div class="summary-toolbar">
@@ -690,7 +732,8 @@ function updateSelectedFeaturesTable(features) {
   }
 
   if (features.length === 0) {
-    selectedFeaturesTableContent.innerHTML = "No features match the current filters.";
+    selectedFeaturesTableContent.innerHTML =
+      "No features match the current filters.";
     return;
   }
 
@@ -709,7 +752,9 @@ function updateSelectedFeaturesTable(features) {
       const cells = orderedColumns
         .map((column) => {
           const value =
-            column === "feature_id" ? feature.id ?? "" : feature.properties?.[column];
+            column === "feature_id"
+              ? (feature.id ?? "")
+              : feature.properties?.[column];
           return `<td>${formatAttributeValue(value)}</td>`;
         })
         .join("");
@@ -735,12 +780,13 @@ function renderSelectedFeatures() {
   const filteredFeatures = getFilteredSelectedFeatures();
   map.getSource("selected-features").setData({
     type: "FeatureCollection",
-    features: filteredFeatures
+    features: filteredFeatures,
   });
   updateSelectionSummary(filteredFeatures);
   updateSelectedFeaturesTable(filteredFeatures);
   if (baseSelectedFeatures.length > 0) {
-    const filterCount = activeNumericFilters.size + activeCategoricalFilters.size;
+    const filterCount =
+      activeNumericFilters.size + activeCategoricalFilters.size;
     statusText.textContent =
       filterCount > 0
         ? `Selected ${filteredFeatures.length} features after filters`
@@ -760,7 +806,7 @@ function getFeatureBoundingBox(geometry) {
     minX: Infinity,
     minY: Infinity,
     maxX: -Infinity,
-    maxY: -Infinity
+    maxY: -Infinity,
   };
 
   function visitCoordinates(coordinates) {
@@ -828,7 +874,7 @@ function getSelectionBounds(startPoint, endPoint) {
     minX: Math.min(startLngLat.lng, endLngLat.lng),
     minY: Math.min(startLngLat.lat, endLngLat.lat),
     maxX: Math.max(startLngLat.lng, endLngLat.lng),
-    maxY: Math.max(startLngLat.lat, endLngLat.lat)
+    maxY: Math.max(startLngLat.lat, endLngLat.lat),
   };
 }
 
@@ -926,17 +972,20 @@ function moveSelectionOverlay(clientX, clientY) {
   const deltaY = clientY - moveSelectionState.startPoint.y;
   const projectedBounds = moveSelectionState.startProjectedBounds;
 
-  const topLeft = map.unproject([projectedBounds.left + deltaX, projectedBounds.top + deltaY]);
+  const topLeft = map.unproject([
+    projectedBounds.left + deltaX,
+    projectedBounds.top + deltaY,
+  ]);
   const bottomRight = map.unproject([
     projectedBounds.right + deltaX,
-    projectedBounds.bottom + deltaY
+    projectedBounds.bottom + deltaY,
   ]);
 
   selectionOverlay.bounds = {
     minX: Math.min(topLeft.lng, bottomRight.lng),
     minY: Math.min(bottomRight.lat, topLeft.lat),
     maxX: Math.max(topLeft.lng, bottomRight.lng),
-    maxY: Math.max(bottomRight.lat, topLeft.lat)
+    maxY: Math.max(bottomRight.lat, topLeft.lat),
   };
 
   renderSelectionOverlay();
@@ -956,14 +1005,14 @@ function ensureDataLayers() {
   if (!map.getSource("features")) {
     map.addSource("features", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: [] }
+      data: { type: "FeatureCollection", features: [] },
     });
   }
 
   if (!map.getSource("selected-features")) {
     map.addSource("selected-features", {
       type: "geojson",
-      data: { type: "FeatureCollection", features: [] }
+      data: { type: "FeatureCollection", features: [] },
     });
   }
 
@@ -975,8 +1024,8 @@ function ensureDataLayers() {
       filter: ["==", ["geometry-type"], "Polygon"],
       paint: {
         "fill-color": "#0f766e",
-        "fill-opacity": 0.28
-      }
+        "fill-opacity": 0.28,
+      },
     });
   }
 
@@ -987,8 +1036,8 @@ function ensureDataLayers() {
       source: "features",
       paint: {
         "line-color": "#0b5d57",
-        "line-width": 1
-      }
+        "line-width": 1,
+      },
     });
   }
 
@@ -1002,8 +1051,8 @@ function ensureDataLayers() {
         "circle-radius": 4,
         "circle-color": "#b45309",
         "circle-stroke-width": 1,
-        "circle-stroke-color": "#fff7ed"
-      }
+        "circle-stroke-color": "#fff7ed",
+      },
     });
   }
 
@@ -1015,8 +1064,8 @@ function ensureDataLayers() {
       filter: ["==", ["geometry-type"], "Polygon"],
       paint: {
         "fill-color": "#ea580c",
-        "fill-opacity": 0.4
-      }
+        "fill-opacity": 0.4,
+      },
     });
   }
 
@@ -1027,8 +1076,8 @@ function ensureDataLayers() {
       source: "selected-features",
       paint: {
         "line-color": "#9a3412",
-        "line-width": 2
-      }
+        "line-width": 2,
+      },
     });
   }
 
@@ -1042,8 +1091,8 @@ function ensureDataLayers() {
         "circle-radius": 5,
         "circle-color": "#ea580c",
         "circle-stroke-width": 1.5,
-        "circle-stroke-color": "#fff7ed"
-      }
+        "circle-stroke-color": "#fff7ed",
+      },
     });
   }
 }
@@ -1058,7 +1107,8 @@ async function loadFeatures() {
     currentFeatureCollection = { type: "FeatureCollection", features: [] };
     featureCount.textContent = "0";
     clearSelection();
-    statusText.textContent = "No feature layer available in the current GeoPackage.";
+    statusText.textContent =
+      "No feature layer available in the current GeoPackage.";
     return;
   }
 
@@ -1069,13 +1119,15 @@ async function loadFeatures() {
     bounds.getWest(),
     bounds.getSouth(),
     bounds.getEast(),
-    bounds.getNorth()
+    bounds.getNorth(),
   ].join(",");
 
   statusText.textContent = "Loading features";
 
   try {
-    const data = await getJson(`/api/features?layer=${encodeURIComponent(layer)}&limit=${limit}&bbox=${bbox}`);
+    const data = await getJson(
+      `/api/features?layer=${encodeURIComponent(layer)}&limit=${limit}&bbox=${bbox}`,
+    );
     if (requestId !== pendingRequest) {
       return;
     }
@@ -1105,7 +1157,7 @@ async function uploadGeoPackage() {
   try {
     await postBinary("/api/upload", file, {
       "Content-Type": "application/octet-stream",
-      "X-File-Name": file.name
+      "X-File-Name": file.name,
     });
 
     clearSelection();
@@ -1148,11 +1200,12 @@ function handleSummaryClick(event) {
     renderSelectedFeatures();
     return;
   }
-
 }
 
 function handleSummaryChange(event) {
-  const select = event.target.closest("select[data-action='categorical-filter']");
+  const select = event.target.closest(
+    "select[data-action='categorical-filter']",
+  );
   if (!select) {
     return;
   }
@@ -1186,7 +1239,7 @@ function startHistogramBrush(event) {
     field: histogram.dataset.field,
     histogram,
     startIndex,
-    currentIndex: startIndex
+    currentIndex: startIndex,
   };
 
   updateHistogramBrushPreview(histogram, startIndex, startIndex);
@@ -1197,7 +1250,10 @@ function moveHistogramBrush(event) {
     return;
   }
 
-  const currentIndex = getHistogramBarIndex(histogramBrushState.histogram, event.clientX);
+  const currentIndex = getHistogramBarIndex(
+    histogramBrushState.histogram,
+    event.clientX,
+  );
   if (currentIndex < 0) {
     return;
   }
@@ -1206,7 +1262,7 @@ function moveHistogramBrush(event) {
   updateHistogramBrushPreview(
     histogramBrushState.histogram,
     histogramBrushState.startIndex,
-    histogramBrushState.currentIndex
+    histogramBrushState.currentIndex,
   );
 }
 
@@ -1216,7 +1272,11 @@ function endHistogramBrush() {
   }
 
   const { histogram, field, startIndex, currentIndex } = histogramBrushState;
-  const { bars, start, end } = getHistogramBrushRange(histogram, startIndex, currentIndex);
+  const { bars, start, end } = getHistogramBrushRange(
+    histogram,
+    startIndex,
+    currentIndex,
+  );
   clearHistogramBrushPreview(histogram);
   histogramBrushState = null;
 
@@ -1275,6 +1335,7 @@ map.on("load", async () => {
       clearSelection();
     }
   });
+  selectAllButton.addEventListener("click", selectAllFeatures);
   selectionSummaryContent.addEventListener("click", handleSummaryClick);
   selectionSummaryContent.addEventListener("change", handleSummaryChange);
   selectionSummaryContent.addEventListener("mousedown", startHistogramBrush);
