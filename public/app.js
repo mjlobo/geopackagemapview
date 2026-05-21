@@ -62,6 +62,7 @@ let moveSelectionState = null;
 let histogramBrushState = null;
 let tablePanelDragState = null;
 let hasLoadedDataFile = false;
+let selectedAll = false;
 
 async function getJson(url) {
   const response = await fetch(url);
@@ -474,8 +475,9 @@ function setSelectionOverlay(bounds) {
 }
 
 function selectAllFeatures() {
+  selectedAll = true;
   const allFeatures = currentFeatureCollection.features;
-  baseSelectedFeatures = allFeatures;
+  setSelectedFeatures(allFeatures);
   renderSelectedFeatures();
 }
 
@@ -1113,7 +1115,7 @@ async function loadFeatures() {
   }
 
   const requestId = ++pendingRequest;
-  const limit = Math.max(50, Math.min(5000, Number(limitInput.value) || 1000));
+  const limit = Math.max(50, Math.min(5000, Number(limitInput.value) || 3000));
   const bounds = map.getBounds();
   const bbox = [
     bounds.getWest(),
@@ -1316,7 +1318,7 @@ map.on("load", async () => {
       return;
     }
 
-    loadFeatures();
+    //loadFeatures();
   });
   map.on("mousedown", startSelection);
   map.on("mousemove", updateSelection);

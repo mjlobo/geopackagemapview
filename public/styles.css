@@ -20,7 +20,11 @@ body {
   font-family: "Avenir Next", "Segoe UI", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(15, 118, 110, 0.14),
+      transparent 28%
+    ),
     linear-gradient(135deg, #f7f3ea, #ebe4d6);
 }
 
@@ -354,7 +358,11 @@ button {
   height: 42px;
   padding: 4px;
   border-radius: 10px;
-  background: linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(15, 118, 110, 0.02));
+  background: linear-gradient(
+    180deg,
+    rgba(15, 118, 110, 0.08),
+    rgba(15, 118, 110, 0.02)
+  );
   user-select: none;
 }
 
